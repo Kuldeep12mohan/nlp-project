@@ -5,13 +5,8 @@ from sklearn.model_selection import train_test_split
 from tensorflow.keras.preprocessing.text import Tokenizer  # type: ignore
 from tensorflow.keras.preprocessing.sequence import pad_sequences # type: ignore
 import tensorflow as tf
-
-# Load the Emoji2Vec .bin file using gensim
 emoji2vec_model = KeyedVectors.load_word2vec_format('../embeddings/emoji2vec.bin', binary=True)
-# Save it to .txt format
 emoji2vec_model.save_word2vec_format('../embeddings/emoji2vec.txt', binary=False)
-
-# Load the modern tweet dataset
 modern_tweet_dataset = pd.read_csv('../data/modern_tweet_dataset.csv')
 
 # Check for NaN values and handle them
@@ -20,10 +15,9 @@ modern_tweet_dataset['Processed_Text'] = modern_tweet_dataset['Processed_Text'].
 texts = modern_tweet_dataset['Processed_Text'].tolist()
 labels = modern_tweet_dataset['Sentiment'].tolist()
 
-# Split the dataset into training and testing sets (80% train, 20% test)
+# Splitting the dataset into training and testing sets (80% train, 20% test)
 X_train_texts, X_test_texts, y_train, y_test = train_test_split(texts, labels, test_size=0.2, random_state=42)
 
-# Initialize tokenizer and fit on training texts
 tokenizer = Tokenizer()
 tokenizer.fit_on_texts(X_train_texts)
 word_index = tokenizer.word_index
@@ -33,7 +27,7 @@ X_train_padded = pad_sequences(X_train_sequences, padding='post')
 X_test_sequences = tokenizer.texts_to_sequences(X_test_texts)
 X_test_padded = pad_sequences(X_test_sequences, padding='post', maxlen=X_train_padded.shape[1])
 
-# Function to load GloVe embeddings
+
 def load_glove_embeddings(glove_file, word_index, embedding_dim=300):
     embeddings_index = {}
     with open(glove_file, 'r', encoding='utf-8') as f:
@@ -49,13 +43,11 @@ def load_glove_embeddings(glove_file, word_index, embedding_dim=300):
             embedding_matrix[i] = embedding_vector
     return embedding_matrix
 
-# Load GloVe embeddings
-glove_file = '../embeddings/glove.42B.300d/glove.42B.300d.txt'  # Ensure this file is in the correct path
+glove_file = '../embeddings/glove.42B.300d/glove.42B.300d.txt'  
 embedding_dim = 300
 glove_embedding_matrix = load_glove_embeddings(glove_file, tokenizer.word_index, embedding_dim)
 print(f"GloVe Embedding matrix shape: {glove_embedding_matrix.shape}")
 
-# Function to load Emoji2Vec embeddings
 def load_emoji2vec_embeddings(emoji2vec_file, word_index, embedding_dim=300):
     embeddings_index = {}
     with open(emoji2vec_file, 'r', encoding='utf-8') as f:
@@ -71,8 +63,7 @@ def load_emoji2vec_embeddings(emoji2vec_file, word_index, embedding_dim=300):
             embedding_matrix[i] = embedding_vector
     return embedding_matrix
 
-# Load Emoji2Vec embeddings
-emoji2vec_file = '../embeddings/emoji2vec.txt'  # Ensure this file is in the correct path
+emoji2vec_file = '../embeddings/emoji2vec.txt' 
 emoji_embedding_matrix = load_emoji2vec_embeddings(emoji2vec_file, tokenizer.word_index, embedding_dim)
 print(f"Emoji2Vec Embedding matrix shape: {emoji_embedding_matrix.shape}")
 
@@ -85,3 +76,4 @@ for word, i in word_index.items():
         combined_embedding_matrix[i] = glove_embedding_matrix[i]
 
 print(f"Combined Embedding matrix shape: {combined_embedding_matrix.shape}")
+

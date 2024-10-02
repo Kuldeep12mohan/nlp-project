@@ -11,9 +11,7 @@ text_tweets = pd.read_csv('../data/sentiment.csv', header=None, names=column_nam
 emoji_tweets = pd.read_csv('../data/tweet.csv')
 
 # dropping the unused columns
-text_tweets.drop(columns=['date'], inplace=True)
-text_tweets.drop(columns=['flag'], inplace=True)
-text_tweets.drop(columns=['user'], inplace=True)
+text_tweets.drop(columns=['date', 'flag', 'user', 'id'], inplace=True)
 
 # renaming the column of text dataset to match with emoji dataset so combining them would be easy
 text_tweets.rename(columns={'target': 'Sentiment'}, inplace=True)
@@ -32,6 +30,13 @@ emoji_sampled = emoji_tweets.sample(n=16000, random_state=42)
 modern_tweet_dataset = pd.concat([sentiment140_sampled, emoji_sampled], ignore_index=True)
 modern_tweet_dataset = modern_tweet_dataset.sample(frac=1, random_state=42).reset_index(drop=True)
 
+
+# Basic cleaning: Remove duplicates, handle missing values
+modern_tweet_dataset.drop_duplicates(inplace=True)
+modern_tweet_dataset.dropna(subset=['Text'], inplace=True)
+
+
+# preprocessing of data
 
 # nltk.download('stopwords')
 
@@ -78,13 +83,10 @@ def preprocess_text(text):
 
 
 modern_tweet_dataset['Processed_Text'] = modern_tweet_dataset['Text'].apply(preprocess_text)
-modern_tweet_dataset.drop(columns=['id'],inplace=True)
 modern_tweet_dataset.to_csv('../data/modern_tweet_dataset.csv', index=False)
 
 # example for testing
 text = "I don't ❤️ flying @VirginAmerica. :D heyyyy 😃👍 🌈🦄🍕 ..&"
 processed_text = preprocess_text(text)
-
-modern_tweet_dataset.head()
 print(processed_text)
 
