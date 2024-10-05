@@ -5,7 +5,7 @@ import emoji
 from sklearn.model_selection import train_test_split
 from nltk.corpus import stopwords
 import nltk
-from keras.preprocessing.text import Tokenizer
+from tensorflow.keras.preprocessing.text import Tokenizer
 from keras.preprocessing.sequence import pad_sequences
 from keras.models import Model
 from keras.layers import Input, Embedding, LSTM, Conv1D, MaxPooling1D, Dense, Dropout, Bidirectional
@@ -45,7 +45,18 @@ def preprocess_text(text):
 def load_dataset():
     file_path = "data/sentiment140.csv"  # Replace with actual file path
     df = pd.read_csv(file_path, encoding='latin1', header=None)
-    df.columns = ['polarity', 'id', 'date', 'query', 'user', 'text']
+    
+    # Print shape to debug
+    print("Dataset shape:", df.shape)
+    
+    # Check how many columns exist and then assign column names accordingly
+    if df.shape[1] == 6:
+        df.columns = ['polarity', 'id', 'date', 'query', 'user', 'text']
+    else:
+        # Handle unexpected column numbers - adjust the columns as necessary
+        print("Unexpected number of columns. Please inspect the dataset.")
+        return None
+    
     df['text'] = df['text'].apply(preprocess_text)
     return df
 
@@ -133,6 +144,11 @@ def evaluate_model(model, X_test, y_test):
 def main():
     # Step 1: Load and preprocess dataset
     df = load_dataset()
+    
+    if df is None:
+        print("Dataset loading failed.")
+        return
+    
     X = df['text']
     y = df['polarity'].apply(lambda x: 1 if x == 4 else 0)  # Convert to binary sentiment (1 = positive, 0 = negative)
     
@@ -154,7 +170,7 @@ def main():
     embedding_matrix = create_embedding_matrix(tokenizer, glove_embeddings, emoji_embeddings, vocab_size, embedding_dim)
     
     # Step 6: Build and compile the BiLSTM-CNN model
-    model = build_bilstm_cnn_model(vocab_size, embedding_matrix, max_len, embedding_dim)#
+    model = build_bilstm_cnn_model(vocab_size, embedding_matrix, max_len, embedding_dim)
     
     # Step 7: Train the model
     early_stopping = EarlyStopping(monitor='val_loss', patience=3, restore_best_weights=True)
