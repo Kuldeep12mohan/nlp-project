@@ -1,3 +1,7 @@
+from gensim.models import KeyedVectors
+emoji2vec_model = KeyedVectors.load_word2vec_format('embeddings/emoji2vec.bin', binary=True)
+emoji2vec_model.save_word2vec_format('embeddings/emoji2vec.txt', binary=False)
+
 import pandas as pd
 import numpy as np
 import re
@@ -49,16 +53,16 @@ def load_dataset():
     # Print shape to debug
     print("Dataset shape:", df.shape)
     
-    # Check how many columns exist and then assign column names accordingly
-    if df.shape[1] == 6:
-        df.columns = ['polarity', 'id', 'date', 'query', 'user', 'text']
+    # Since the dataset has 2 columns, let's assume first column is 'polarity' and second is 'text'
+    if df.shape[1] == 2:
+        df.columns = ['polarity', 'text']
     else:
-        # Handle unexpected column numbers - adjust the columns as necessary
         print("Unexpected number of columns. Please inspect the dataset.")
         return None
     
     df['text'] = df['text'].apply(preprocess_text)
     return df
+
 
 # Tokenize and pad sequences
 def tokenize_and_pad(X_train, X_test, max_len):
@@ -87,13 +91,14 @@ def load_glove_embeddings(glove_file, embedding_dim=300):
 
 def load_emoji_embeddings(emoji_file, embedding_dim=300):
     embeddings_index = {}
-    with open(emoji_file, 'r', encoding='utf-8') as f:
+    with open(emoji_file, 'rb') as f:  # Use 'rb' to open in binary mode
         for line in f:
-            values = line.split()
+            values = line.decode('utf-8').split()  # Decode each line as UTF-8
             emoji_char = values[0]
             coefs = np.asarray(values[1:], dtype='float32')
             embeddings_index[emoji_char] = coefs
     return embeddings_index
+
 
 # Create an embedding matrix from both GloVe and Emoji2Vec
 def create_embedding_matrix(tokenizer, glove_embeddings, emoji_embeddings, vocab_size, embedding_dim=300):
@@ -160,8 +165,8 @@ def main():
     X_train_pad, X_test_pad, vocab_size, tokenizer = tokenize_and_pad(X_train, X_test, max_len)
     
     # Step 4: Load GloVe and Emoji2Vec embeddings
-    glove_file = "data/glove.6B.300d.txt"  # Replace with actual GloVe file path
-    emoji_file = "data/emoji2vec.txt"     # Replace with actual Emoji2Vec file path
+    glove_file = "embeddings/glove.42B.300d.txt"  # Replace with actual GloVe file path
+    emoji_file = "embeddings/emoji2vec.bin"     # Replace with actual Emoji2Vec file path
     glove_embeddings = load_glove_embeddings(glove_file)
     emoji_embeddings = load_emoji_embeddings(emoji_file)
     

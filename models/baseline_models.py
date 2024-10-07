@@ -10,166 +10,155 @@ import emoji
 import nltk
 from nltk.corpus import stopwords
 
-# Download NLTK stopwords if not already downloaded
+# Download stopwords if not already downloaded
 nltk.download('stopwords', quiet=True)
 
-# Text preprocessing functions
+# Preprocessing functions
 def clean_text(text):
-    """
-    Clean the text by:
-    - Lowercasing
-    - Removing URLs, mentions, hashtags, numbers, and punctuations
-    - Removing extra spaces
-    """
-    text = str(text).lower()  # Convert to lowercase and ensure it's a string
-    text = re.sub(r'http\S+', '', text)  # Remove URLs
-    text = re.sub(r'@\w+', '', text)     # Remove mentions (@username)
-    text = re.sub(r'#\w+', '', text)     # Remove hashtags
-    text = re.sub(r'\d+', '', text)      # Remove numbers
-    text = re.sub(r'[^\w\s]', '', text)  # Remove punctuations
-    text = re.sub(r'\s+', ' ', text).strip()  # Remove extra spaces
+    text = str(text).lower()
+    text = re.sub(r'http\S+', '', text)
+    text = re.sub(r'@\w+', '', text)
+    text = re.sub(r'#\w+', '', text)
+    text = re.sub(r'\d+', '', text)
+    text = re.sub(r'[^\w\s]', '', text)
+    text = re.sub(r'\s+', ' ', text).strip()
     return text
 
-def process_emojis(text):
-    """
-    Process emojis by converting them into descriptive text (demojize).
-    """
+def process_emojis_to_descriptions(text):
     return emoji.demojize(text)
 
-def remove_stopwords(text):
-    """
-    Remove stop words from the text.
-    """
-    stop_words = set(stopwords.words('english'))
-    return ' '.join([word for word in text.split() if word not in stop_words])
+def remove_emojis(text):
+    return emoji.replace_emoji(text, "")
 
-def preprocess_text(text):
-    """
-    Complete preprocessing pipeline: clean, handle emojis, and remove stopwords.
-    """
+def add_emoji_sentiment_score(text, emoji_lexicon):
+    words = text.split()
+    score = sum([emoji_lexicon.get(word, 0) for word in words])  # Example using a simple sum of emoji scores
+    return text, score
+
+def preprocess_text_variant(text, variant, emoji_lexicon=None):
     text = clean_text(text)
-    text = process_emojis(text)
-    text = remove_stopwords(text)
+    
+    if variant == 'T':
+        text = remove_emojis(text)
+    elif variant == 'D':
+        text = process_emojis_to_descriptions(text)
+    elif variant == 'ES' and emoji_lexicon:
+        text, score = add_emoji_sentiment_score(text, emoji_lexicon)
+        return text, score
+    elif variant == 'EB':
+        # Placeholder for emoji embedding logic
+        pass
     return text
 
-# Load dataset (Kaggle dataset example)
-def load_dataset():
-    """
-    Load the dataset (example with Sentiment140 structure).
-    The dataset should contain a 'text' column and a 'polarity' column (labels).
-    """
+# Load dataset (Sentiment140 specific handling)
+import pandas as pd
 
-
-
-
-# Modify this path to your dataset
-file_path = "data/sentiment140.csv"  # Replace with the actual path to your dataset
-
-def load_and_preprocess_data(file_path):
+def load_dataset(file_path):
     try:
-        # Load the dataset
-        df = pd.read_csv(file_path, encoding='latin1')
+        # Load the CSV without any assumptions about the number of columns
+        df = pd.read_csv(file_path, encoding='latin1', header=None)
+        
+        # Print the shape and first few rows to inspect the dataset
+        print(f"Dataset shape: {df.shape}")
+        print("First few rows of the dataset:")
+        print(df.head())
 
-        # Print the column names for debugging
-        print("Columns in the dataset:", df.columns)
+        # Manually check if it has exactly 6 columns
+        if df.shape[1] != 6:
+            raise ValueError(f"Unexpected number of columns in dataset: {df.shape[1]} columns found. Expected 6.")
 
-        # Ensure 'text' column exists (you may need to adjust 'text' based on actual column name)
-        if 'Text' not in df.columns:
-            print(f"Available columns: {df.columns}")
-            raise KeyError(f"'Text' column not found in the dataset {file_path}")
-
-        # Print the first few rows to ensure the dataset is correctly loaded
-        print("First few rows of the dataset:\n", df.head())
-
-        # Apply your preprocessing function
-        df['Text'] = df['Text'].apply(preprocess_text)  # Preprocess the text
-        return df
-
-    except FileNotFoundError:
-        print(f"Error: The file {file_path} was not found.")
-        return None
-    except KeyError as ke:
-        print(f"Error: {str(ke)}")
-        return None
+        # Assign the correct column names for Sentiment140
+        df.columns = ['polarity', 'id', 'date', 'query', 'user', 'text']
+        
+        # Adjust polarity values (Sentiment140 uses 0 for negative, 4 for positive)
+        df['polarity'] = df['polarity'].map({0: 0, 4: 1})  # Convert 4 to 1 for binary classification
+        
+        # Clean the 'text' column
+        df['text'] = df['text'].apply(clean_text)
+        
+        # Return only the 'text' and 'polarity' columns
+        return df[['text', 'polarity']]
+    
     except Exception as e:
-        print(f"An error occurred while loading the dataset: {str(e)}")
+        print(f"Error: {str(e)}")
         return None
 
-# Example usage:
-df = load_and_preprocess_data(file_path)
+    
+    except Exception as e:
+        print(f"Error: {str(e)}")
+        return None
 
 
-
-
-# Vectorize text data using TF-IDF
+# Vectorize text using TF-IDF
 def vectorize_text(X_train, X_test):
-    """
-    Vectorizes the input text using TF-IDF.
-    """
     tfidf_vectorizer = TfidfVectorizer(max_features=5000)
     X_train_tfidf = tfidf_vectorizer.fit_transform(X_train)
     X_test_tfidf = tfidf_vectorizer.transform(X_test)
     return X_train_tfidf, X_test_tfidf
 
-# Naive Bayes model
+# Train different models
 def train_nb(X_train, y_train):
     nb_model = BernoulliNB()
     nb_model.fit(X_train, y_train)
     return nb_model
 
-# SVM model
 def train_svm(X_train, y_train):
     svm_model = SVC(kernel='linear')
     svm_model.fit(X_train, y_train)
     return svm_model
 
-# Logistic Regression model
 def train_lr(X_train, y_train):
     lr_model = LogisticRegression(max_iter=1000)
     lr_model.fit(X_train, y_train)
     return lr_model
 
-# Model evaluation
+# Evaluate model
 def evaluate_model(model, X_test, y_test):
     y_pred = model.predict(X_test)
     accuracy = accuracy_score(y_test, y_pred)
     f1 = f1_score(y_test, y_pred, average='weighted')
     return accuracy, f1
 
-def main():
-    # Step 1: Load and preprocess dataset
-    df = load_dataset()
-    if df is None:
-        return
-    
-    X = df['Text']  # Feature: text data
-    y = df['polarity']  # Labels (0 = negative, 2 = neutral, 4 = positive)
-    
-    # Step 2: Split data into training and testing sets
+def run_experiment(df, variant, emoji_lexicon=None):
+    # Apply the text preprocessing based on the variant (T, D, ES, EB, etc.)
+    if variant in ['ES', 'D+ES', 'ES+EB', 'D+ES+EB']:
+        df['text'], df['emoji_score'] = zip(*df['text'].apply(lambda x: preprocess_text_variant(x, variant, emoji_lexicon)))
+    else:
+        df['text'] = df['text'].apply(lambda x: preprocess_text_variant(x, variant))
+
+    X = df['text']
+    y = df['polarity']  # Labels
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-    
-    # Step 3: Vectorize the text data using TF-IDF
     X_train_tfidf, X_test_tfidf = vectorize_text(X_train, X_test)
 
-    # Step 4: Train and evaluate models
+    # Train and evaluate models
+    models = {
+        'Naive Bayes': train_nb(X_train_tfidf, y_train),
+        'SVM': train_svm(X_train_tfidf, y_train),
+        'Logistic Regression': train_lr(X_train_tfidf, y_train)
+    }
+
+    for model_name, model in models.items():
+        accuracy, f1 = evaluate_model(model, X_test_tfidf, y_test)
+        print(f"{model_name} ({variant}) Accuracy: {accuracy:.4f}, F1 Score: {f1:.4f}")
+
+# Main function to run multiple experiments
+def main():
+    file_path = "data/sentiment140.csv"  # Replace with your actual file path
+    df = load_dataset(file_path)
+    if df is None:
+        return
+
+    # Example emoji sentiment lexicon (you can extend this)
+    emoji_lexicon = {'grinning_face': 1, 'sad_face': -1}  # Example emoji sentiment lexicon
     
-    # Naive Bayes
-    print("\nTraining Naive Bayes model...")
-    nb_model = train_nb(X_train_tfidf, y_train)
-    nb_accuracy, nb_f1 = evaluate_model(nb_model, X_test_tfidf, y_test)
-    print(f"Naive Bayes Accuracy: {nb_accuracy:.4f}, F1 Score: {nb_f1:.4f}")
+    # Variants to test
+    variants = ['T', 'D', 'ES', 'EB', 'D+ES', 'D+EB', 'ES+EB', 'D+ES+EB']
     
-    # SVM
-    print("\nTraining SVM model...")
-    svm_model = train_svm(X_train_tfidf, y_train)
-    svm_accuracy, svm_f1 = evaluate_model(svm_model, X_test_tfidf, y_test)
-    print(f"SVM Accuracy: {svm_accuracy:.4f}, F1 Score: {svm_f1:.4f}")
-    
-    # Logistic Regression
-    print("\nTraining Logistic Regression model...")
-    lr_model = train_lr(X_train_tfidf, y_train)
-    lr_accuracy, lr_f1 = evaluate_model(lr_model, X_test_tfidf, y_test)
-    print(f"Logistic Regression Accuracy: {lr_accuracy:.4f}, F1 Score: {lr_f1:.4f}")
+    # Run experiments for each variant
+    for variant in variants:
+        print(f"\nRunning experiment for variant {variant}...")
+        run_experiment(df, variant, emoji_lexicon)
 
 if __name__ == "__main__":
     main()
