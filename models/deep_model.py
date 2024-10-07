@@ -6,6 +6,7 @@ from tensorflow.keras.preprocessing.text import Tokenizer # type:ignore
 from tensorflow.keras.preprocessing.sequence import pad_sequences # type:ignore
 from tensorflow.keras.layers import Input, Embedding, Bidirectional, LSTM, Conv1D, GlobalMaxPooling1D, Dense, Dropout, Concatenate # type:ignore
 from tensorflow.keras.models import Model # type:ignore
+from tensorflow.keras.callbacks import EarlyStopping # type:ignore
 
 # Load the combined embedding matrix
 combined_embedding_matrix = np.load('../embeddings/combined_embedding_matrix.npy')
@@ -66,13 +67,17 @@ output = Dense(1, activation='sigmoid')(dropout2)
 model = Model(inputs=[text_input, emoji_score_input], outputs=output)
 model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
 
-# Train the model
+# Early stopping callback
+early_stopping = EarlyStopping(monitor='val_loss', patience=3, restore_best_weights=True)
+
+# Train the model with early stopping and increased epochs
 history = model.fit(
     [X_train_padded, np.array(emoji_scores_train)],
     np.array(y_train),
-    epochs=5,
+    epochs=20,  # Increased number of epochs
     batch_size=32,
     validation_data=([X_test_padded, np.array(emoji_scores_test)], np.array(y_test)),
+    callbacks=[early_stopping],  # Add early stopping callback
     verbose=1
 )
 
