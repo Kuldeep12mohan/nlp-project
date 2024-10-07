@@ -17,7 +17,6 @@ from keras.optimizers import Adam
 from keras.callbacks import EarlyStopping
 from sklearn.metrics import accuracy_score, f1_score
 
-
 # Download stopwords if not already available
 nltk.download('stopwords')
 
@@ -63,7 +62,6 @@ def load_dataset():
     df['text'] = df['text'].apply(preprocess_text)
     return df
 
-
 # Tokenize and pad sequences
 def tokenize_and_pad(X_train, X_test, max_len):
     tokenizer = Tokenizer()
@@ -93,12 +91,14 @@ def load_emoji_embeddings(emoji_file, embedding_dim=300):
     embeddings_index = {}
     with open(emoji_file, 'rb') as f:  # Use 'rb' to open in binary mode
         for line in f:
-            values = line.decode('utf-8').split()  # Decode each line as UTF-8
+            # Decode with error handling to avoid UnicodeDecodeError
+            values = line.decode('utf-8', errors='ignore').split()
+            if len(values) < embedding_dim + 1:
+                continue  # Skip lines that don't have enough values
             emoji_char = values[0]
             coefs = np.asarray(values[1:], dtype='float32')
             embeddings_index[emoji_char] = coefs
     return embeddings_index
-
 
 # Create an embedding matrix from both GloVe and Emoji2Vec
 def create_embedding_matrix(tokenizer, glove_embeddings, emoji_embeddings, vocab_size, embedding_dim=300):
@@ -115,11 +115,14 @@ def create_embedding_matrix(tokenizer, glove_embeddings, emoji_embeddings, vocab
     return embedding_matrix
 
 # Build BiLSTM-CNN model
+from keras.layers import Flatten
+
+# Update the build_bilstm_cnn_model function
 def build_bilstm_cnn_model(vocab_size, embedding_matrix, input_length, embedding_dim=300):
     input_layer = Input(shape=(input_length,))
     
     # Embedding Layer
-    embedding_layer = Embedding(vocab_size, embedding_dim, weights=[embedding_matrix], input_length=input_length, trainable=False)(input_layer)
+    embedding_layer = Embedding(vocab_size, embedding_dim, weights=[embedding_matrix], trainable=False)(input_layer)
     
     # BiLSTM Layer
     bilstm_layer = Bidirectional(LSTM(128, return_sequences=True))(embedding_layer)
@@ -128,8 +131,11 @@ def build_bilstm_cnn_model(vocab_size, embedding_matrix, input_length, embedding
     conv_layer = Conv1D(64, kernel_size=3, activation='relu')(bilstm_layer)
     pooling_layer = MaxPooling1D(pool_size=2)(conv_layer)
     
+    # Flatten the output to match target shape
+    flatten_layer = Flatten()(pooling_layer)
+    
     # Fully Connected Layers
-    dense_layer = Dense(64, activation='relu')(pooling_layer)
+    dense_layer = Dense(64, activation='relu')(flatten_layer)
     dropout_layer = Dropout(0.5)(dense_layer)
     output_layer = Dense(1, activation='sigmoid')(dropout_layer)
     
@@ -138,6 +144,7 @@ def build_bilstm_cnn_model(vocab_size, embedding_matrix, input_length, embedding
     model.compile(optimizer=Adam(), loss='binary_crossentropy', metrics=['accuracy'])
     
     return model
+
 
 # Evaluate the model
 def evaluate_model(model, X_test, y_test):
