@@ -1,196 +1,95 @@
-from gensim.models import KeyedVectors
-emoji2vec_model = KeyedVectors.load_word2vec_format('embeddings/emoji2vec.bin', binary=True)
-emoji2vec_model.save_word2vec_format('embeddings/emoji2vec.txt', binary=False)
-
-import pandas as pd
 import numpy as np
-import re
-import emoji
+import pandas as pd
 from sklearn.model_selection import train_test_split
-from nltk.corpus import stopwords
-import nltk
-from tensorflow.keras.preprocessing.text import Tokenizer
-from keras.preprocessing.sequence import pad_sequences
-from keras.models import Model
-from keras.layers import Input, Embedding, LSTM, Conv1D, MaxPooling1D, Dense, Dropout, Bidirectional
-from keras.optimizers import Adam
-from keras.callbacks import EarlyStopping
-from sklearn.metrics import accuracy_score, f1_score
+from sklearn.metrics import precision_recall_fscore_support
+from tensorflow.keras.preprocessing.text import Tokenizer # type:ignore
+from tensorflow.keras.preprocessing.sequence import pad_sequences # type:ignore
+from tensorflow.keras.layers import Input, Embedding, Bidirectional, LSTM, Conv1D, GlobalMaxPooling1D, Dense, Dropout, Concatenate # type:ignore
+from tensorflow.keras.models import Model # type:ignore
 
-# Download stopwords if not already available
-nltk.download('stopwords')
+# Load the combined embedding matrix
+combined_embedding_matrix = np.load('../embeddings/combined_embedding_matrix.npy')
 
-# Preprocessing functions
-def clean_text(text):
-    text = text.lower()
-    text = re.sub(r'http\S+', '', text)  # Remove URLs
-    text = re.sub(r'@\w+', '', text)     # Remove mentions
-    text = re.sub(r'#\w+', '', text)     # Remove hashtags
-    text = re.sub(r'\d+', '', text)      # Remove numbers
-    text = re.sub(r'[^\w\s]', '', text)  # Remove punctuation
-    text = re.sub(r'\s+', ' ', text).strip()  # Remove extra spaces
-    return text
+# Load dataset
+modern_tweet_dataset = pd.read_csv('../data/modern_tweet_dataset_with_emoji_scores.csv')
+modern_tweet_dataset['Processed_Text'] = modern_tweet_dataset['Processed_Text'].fillna('').astype(str)
+texts = modern_tweet_dataset['Processed_Text'].tolist()
+labels = modern_tweet_dataset['Sentiment'].tolist()
+emoji_scores = modern_tweet_dataset['Emoji_Score'].tolist()
 
-def process_emojis(text):
-    return emoji.demojize(text)
+# Split the dataset
+X_train_texts, X_test_texts, y_train, y_test, emoji_scores_train, emoji_scores_test = train_test_split(
+    texts, labels, emoji_scores, test_size=0.2, random_state=42
+)
 
-def remove_stopwords(text):
-    stop_words = set(stopwords.words('english'))
-    return ' '.join([word for word in text.split() if word not in stop_words])
+# Tokenize the text data
+tokenizer = Tokenizer()
+tokenizer.fit_on_texts(X_train_texts)
+word_index = tokenizer.word_index
 
-def preprocess_text(text):
-    text = clean_text(text)
-    text = process_emojis(text)
-    text = remove_stopwords(text)
-    return text
+# Convert text to sequences and pad them
+X_train_sequences = tokenizer.texts_to_sequences(X_train_texts)
+X_train_padded = pad_sequences(X_train_sequences, padding='post')
+X_test_sequences = tokenizer.texts_to_sequences(X_test_texts)
+X_test_padded = pad_sequences(X_test_sequences, padding='post', maxlen=X_train_padded.shape[1])
 
-# Load the dataset (example using Sentiment140)
-def load_dataset():
-    file_path = "data/sentiment140.csv"  # Replace with actual file path
-    df = pd.read_csv(file_path, encoding='latin1', header=None)
-    
-    # Print shape to debug
-    print("Dataset shape:", df.shape)
-    
-    # Since the dataset has 2 columns, let's assume first column is 'polarity' and second is 'text'
-    if df.shape[1] == 2:
-        df.columns = ['polarity', 'text']
-    else:
-        print("Unexpected number of columns. Please inspect the dataset.")
-        return None
-    
-    df['text'] = df['text'].apply(preprocess_text)
-    return df
+# Build the model
+text_input = Input(shape=(X_train_padded.shape[1],))  # Use the shape of the training data
+emoji_score_input = Input(shape=(1,))
 
-# Tokenize and pad sequences
-def tokenize_and_pad(X_train, X_test, max_len):
-    tokenizer = Tokenizer()
-    tokenizer.fit_on_texts(X_train)
-    
-    X_train_seq = tokenizer.texts_to_sequences(X_train)
-    X_test_seq = tokenizer.texts_to_sequences(X_test)
-    
-    X_train_pad = pad_sequences(X_train_seq, maxlen=max_len, padding='post')
-    X_test_pad = pad_sequences(X_test_seq, maxlen=max_len, padding='post')
-    
-    vocab_size = len(tokenizer.word_index) + 1
-    return X_train_pad, X_test_pad, vocab_size, tokenizer
+# Embedding layer with pretrained embeddings
+embedding = Embedding(
+    input_dim=len(tokenizer.word_index) + 1,
+    output_dim=300,
+    weights=[combined_embedding_matrix],
+    trainable=False
+)(text_input)
 
-# Load pre-trained embeddings (GloVe and Emoji2Vec)
-def load_glove_embeddings(glove_file, embedding_dim=300):
-    embeddings_index = {}
-    with open(glove_file, 'r', encoding='utf-8') as f:
-        for line in f:
-            values = line.split()
-            word = values[0]
-            coefs = np.asarray(values[1:], dtype='float32')
-            embeddings_index[word] = coefs
-    return embeddings_index
+# BiLSTM and CNN layers
+bilstm = Bidirectional(LSTM(128, return_sequences=True))(embedding)
+conv = Conv1D(filters=64, kernel_size=5, activation='relu')(bilstm)
+max_pool = GlobalMaxPooling1D()(conv)
 
-def load_emoji_embeddings(emoji_file, embedding_dim=300):
-    embeddings_index = {}
-    with open(emoji_file, 'rb') as f:  # Use 'rb' to open in binary mode
-        for line in f:
-            # Decode with error handling to avoid UnicodeDecodeError
-            values = line.decode('utf-8', errors='ignore').split()
-            if len(values) < embedding_dim + 1:
-                continue  # Skip lines that don't have enough values
-            emoji_char = values[0]
-            coefs = np.asarray(values[1:], dtype='float32')
-            embeddings_index[emoji_char] = coefs
-    return embeddings_index
+# Concatenate CNN output with emoji score
+concat = Concatenate()([max_pool, emoji_score_input])
 
-# Create an embedding matrix from both GloVe and Emoji2Vec
-def create_embedding_matrix(tokenizer, glove_embeddings, emoji_embeddings, vocab_size, embedding_dim=300):
-    embedding_matrix = np.zeros((vocab_size, embedding_dim))
-    
-    for word, i in tokenizer.word_index.items():
-        embedding_vector = glove_embeddings.get(word)
-        if embedding_vector is None:
-            embedding_vector = emoji_embeddings.get(word)
-        
-        if embedding_vector is not None:
-            embedding_matrix[i] = embedding_vector
-    
-    return embedding_matrix
+# Dense layers with dropout
+dense1 = Dense(64, activation='relu')(concat)
+dropout1 = Dropout(0.3)(dense1)
+dense2 = Dense(32, activation='relu')(dropout1)
+dropout2 = Dropout(0.3)(dense2)
 
-# Build BiLSTM-CNN model
-from keras.layers import Flatten
+# Output layer
+output = Dense(1, activation='sigmoid')(dropout2)
 
-# Update the build_bilstm_cnn_model function
-def build_bilstm_cnn_model(vocab_size, embedding_matrix, input_length, embedding_dim=300):
-    input_layer = Input(shape=(input_length,))
-    
-    # Embedding Layer
-    embedding_layer = Embedding(vocab_size, embedding_dim, weights=[embedding_matrix], trainable=False)(input_layer)
-    
-    # BiLSTM Layer
-    bilstm_layer = Bidirectional(LSTM(128, return_sequences=True))(embedding_layer)
-    
-    # CNN Layer
-    conv_layer = Conv1D(64, kernel_size=3, activation='relu')(bilstm_layer)
-    pooling_layer = MaxPooling1D(pool_size=2)(conv_layer)
-    
-    # Flatten the output to match target shape
-    flatten_layer = Flatten()(pooling_layer)
-    
-    # Fully Connected Layers
-    dense_layer = Dense(64, activation='relu')(flatten_layer)
-    dropout_layer = Dropout(0.5)(dense_layer)
-    output_layer = Dense(1, activation='sigmoid')(dropout_layer)
-    
-    model = Model(inputs=input_layer, outputs=output_layer)
-    
-    model.compile(optimizer=Adam(), loss='binary_crossentropy', metrics=['accuracy'])
-    
-    return model
+# Create and compile model
+model = Model(inputs=[text_input, emoji_score_input], outputs=output)
+model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
 
+# Train the model
+history = model.fit(
+    [X_train_padded, np.array(emoji_scores_train)],
+    np.array(y_train),
+    epochs=5,
+    batch_size=32,
+    validation_data=([X_test_padded, np.array(emoji_scores_test)], np.array(y_test)),
+    verbose=1
+)
+
+# Save the model
+model.save('sentiment_model.h5')
 
 # Evaluate the model
-def evaluate_model(model, X_test, y_test):
-    y_pred = (model.predict(X_test) > 0.5).astype("int32")
-    accuracy = accuracy_score(y_test, y_pred)
-    f1 = f1_score(y_test, y_pred, average='binary')  # Use 'binary' since this is a binary classification task
-    return accuracy, f1
+test_loss, test_accuracy = model.evaluate([X_test_padded, np.array(emoji_scores_test)], np.array(y_test))
+print(f"Test Accuracy: {test_accuracy:.4f}")
+print(f"Test Loss: {test_loss:.4f}")
 
-def main():
-    # Step 1: Load and preprocess dataset
-    df = load_dataset()
-    
-    if df is None:
-        print("Dataset loading failed.")
-        return
-    
-    X = df['text']
-    y = df['polarity'].apply(lambda x: 1 if x == 4 else 0)  # Convert to binary sentiment (1 = positive, 0 = negative)
-    
-    # Step 2: Split into training and testing sets
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-    
-    # Step 3: Tokenize and pad sequences
-    max_len = 50  # Maximum length of sequences
-    X_train_pad, X_test_pad, vocab_size, tokenizer = tokenize_and_pad(X_train, X_test, max_len)
-    
-    # Step 4: Load GloVe and Emoji2Vec embeddings
-    glove_file = "embeddings/glove.42B.300d.txt"  # Replace with actual GloVe file path
-    emoji_file = "embeddings/emoji2vec.bin"     # Replace with actual Emoji2Vec file path
-    glove_embeddings = load_glove_embeddings(glove_file)
-    emoji_embeddings = load_emoji_embeddings(emoji_file)
-    
-    # Step 5: Create an embedding matrix
-    embedding_dim = 300
-    embedding_matrix = create_embedding_matrix(tokenizer, glove_embeddings, emoji_embeddings, vocab_size, embedding_dim)
-    
-    # Step 6: Build and compile the BiLSTM-CNN model
-    model = build_bilstm_cnn_model(vocab_size, embedding_matrix, max_len, embedding_dim)
-    
-    # Step 7: Train the model
-    early_stopping = EarlyStopping(monitor='val_loss', patience=3, restore_best_weights=True)
-    model.fit(X_train_pad, y_train, epochs=5, batch_size=128, validation_split=0.2, callbacks=[early_stopping])
-    
-    # Step 8: Evaluate the model
-    accuracy, f1 = evaluate_model(model, X_test_pad, y_test)
-    print(f"Accuracy: {accuracy:.4f}, F1 Score: {f1:.4f}")
+# Predict the test set
+y_pred = (model.predict([X_test_padded, np.array(emoji_scores_test)]) > 0.5).astype("int32")
 
-if __name__ == "__main__":
-    main()
+# Calculate precision, recall, and F1 score
+precision, recall, f1, _ = precision_recall_fscore_support(np.array(y_test), y_pred, average='binary')
+
+print(f"F1 Score: {f1:.4f}")
+print(f"Precision: {precision:.4f}")
+print(f"Recall: {recall:.4f}")
