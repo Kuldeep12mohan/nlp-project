@@ -5,8 +5,8 @@ from sklearn.model_selection import train_test_split
 from tensorflow.keras.preprocessing.text import Tokenizer  # type: ignore
 from tensorflow.keras.preprocessing.sequence import pad_sequences # type: ignore
 import tensorflow as tf
-emoji2vec_model = KeyedVectors.load_word2vec_format('../embeddings/emoji2vec.bin', binary=True)
-emoji2vec_model.save_word2vec_format('../embeddings/emoji2vec.txt', binary=False)
+# emoji2vec_model = KeyedVectors.load_word2vec_format('../embeddings/emoji2vec.bin', binary=True)
+# emoji2vec_model.save_word2vec_format('../embeddings/emoji2vec.txt', binary=False)
 modern_tweet_dataset = pd.read_csv('../data/modern_tweet_dataset.csv')
 
 # Check for NaN values and handle them
@@ -75,5 +75,9 @@ for word, i in word_index.items():
     elif glove_embedding_matrix[i].any():  # Otherwise, use GloVe
         combined_embedding_matrix[i] = glove_embedding_matrix[i]
 
+
+# saving the combined embedding matrix
+# combined_embedding_file_path = "../embeddings/combined_embedding_matrix.npy"
+# np.save(combined_embedding_file_path, combined_embedding_matrix)
 print(f"Combined Embedding matrix shape: {combined_embedding_matrix.shape}")
 
