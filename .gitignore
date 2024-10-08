@@ -2,3 +2,4 @@ embeddings
 myenv
 data
 models/sentiment_model.h5
+.env

@@ -36,7 +36,7 @@ modern_tweet_dataset.drop_duplicates(inplace=True)
 modern_tweet_dataset.dropna(subset=['Text'], inplace=True)
 
 
-# preprocessing of data
+# preprocessing of data with retaining emojis
 
 # nltk.download('stopwords')
 
@@ -74,6 +74,47 @@ def preprocess_text(text):
     negatives = {'but', 'no', 'nor', 'not'}
     stop_words = stop_words - negatives
     tokens = [token for token in tokens if token not in stop_words or any(is_emoji(c) for c in token)]
+
+    text = ' '.join(tokens)
+
+    text = re.sub(r'\s+', ' ', text).strip()
+
+    return text
+
+
+
+# preprocessing function which only take words and discards emojis
+def preprocess_text_with_no_emoji(text):
+    text = text.lower()
+    text = re.sub(r'http\S+|www\S+|https\S+', '', text, flags=re.MULTILINE)
+    text = re.sub(r'@\w+', '', text)
+    text = re.sub(r'#(\w+)', r'\1', text)
+    tokens = []
+    current_token = ""
+    for char in text:
+        if char.isalnum() and not is_emoji(char):
+            current_token += char
+        else:
+            if current_token:
+                tokens.append(current_token)
+                current_token = ""
+    if current_token:
+        tokens.append(current_token)
+
+    tokens = [re.sub(r'(.)\1+', r'\1\1', token) for token in tokens]
+
+    contractions = {"don't": "not", "won't": "not", "can't": "cannot", "i'm": "i am",
+                    "you're": "you are", "it's": "it is", "he's": "he is", "she's": "she is",
+                    "that's": "that is", "there's": "there is", "wasn't": "was not", "weren't": "were not",
+                    "isn't": "is not", "aren't": "are not", "haven't": "have not", "hasn't": "has not",
+                    "i'll": "i will", "we'll": "we will", "you'll": "you will", "they'll": "they will"}
+    
+    tokens = [contractions.get(token, token) for token in tokens]
+
+    stop_words = set(stopwords.words('english'))
+    negatives = {'but', 'no', 'nor', 'not'}
+    stop_words = stop_words - negatives
+    tokens = [token for token in tokens if token not in stop_words]
 
     text = ' '.join(tokens)
 
