@@ -2,10 +2,11 @@ import numpy as np
 import pandas as pd
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import precision_recall_fscore_support
-from tensorflow.keras.layers import Input, Dense, Dropout, Concatenate #type:ignore
-from tensorflow.keras.models import Model #type:ignore
-from tensorflow.keras.regularizers import l2 #type:ignore
-from tensorflow.keras.callbacks import EarlyStopping #type:ignore
+from sklearn.utils import compute_class_weight
+from tensorflow.keras.layers import Input, Dense, Dropout
+from tensorflow.keras.models import Model
+from tensorflow.keras.regularizers import l2
+from tensorflow.keras.callbacks import EarlyStopping
 
 # Load dataset
 modern_tweet_dataset = pd.read_csv('../data/modern_tweet_dataset_with_emoji_scores.csv')
@@ -22,6 +23,16 @@ X_train_texts, X_test_texts, y_train, y_test, emoji_scores_train, emoji_scores_t
 # Convert emoji scores to numpy arrays
 emoji_scores_train = np.array(emoji_scores_train).reshape(-1, 1)
 emoji_scores_test = np.array(emoji_scores_test).reshape(-1, 1)
+
+# Calculate class weights dynamically based on the class distribution
+class_weights = compute_class_weight(
+    class_weight='balanced', 
+    classes=np.unique(y_train), 
+    y=y_train
+)
+
+# Convert to dictionary format as required by Keras
+class_weights_dict = dict(enumerate(class_weights))
 
 # Build the model
 emoji_score_input = Input(shape=(1,))
@@ -42,9 +53,6 @@ model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy']
 # Early stopping callback
 early_stopping = EarlyStopping(monitor='val_loss', patience=3, restore_best_weights=True)
 
-# Define class weights to handle class imbalance (adjust values as needed)
-class_weights = {0: 1.0, 1: 2.0}  # Adjust based on class distribution
-
 # Train the model with early stopping, class weights, and increased epochs
 history = model.fit(
     emoji_scores_train,
@@ -52,13 +60,10 @@ history = model.fit(
     epochs=30,
     batch_size=32,
     validation_data=(emoji_scores_test, np.array(y_test)),
-    class_weight=class_weights,  # Add class weights here
+    class_weight=class_weights_dict,  # Use dynamically calculated weights
     callbacks=[early_stopping],
     verbose=1
 )
-
-# Save the model
-
 
 # Evaluate the model
 test_loss, test_accuracy = model.evaluate(emoji_scores_test, np.array(y_test))
