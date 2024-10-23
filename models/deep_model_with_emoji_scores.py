@@ -3,10 +3,10 @@ import pandas as pd
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import precision_recall_fscore_support
 from sklearn.utils import compute_class_weight
-from tensorflow.keras.layers import Input, Dense, Dropout
-from tensorflow.keras.models import Model
-from tensorflow.keras.regularizers import l2
-from tensorflow.keras.callbacks import EarlyStopping
+from tensorflow.keras.layers import Input, Dense, Dropout #type:ignore
+from tensorflow.keras.models import Model #type:ignore 
+from tensorflow.keras.regularizers import l2 #type:ignore
+from tensorflow.keras.callbacks import EarlyStopping #type:ignore
 
 # Load dataset
 modern_tweet_dataset = pd.read_csv('../data/modern_tweet_dataset_with_emoji_scores.csv')

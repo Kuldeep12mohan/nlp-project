@@ -9,12 +9,12 @@ from tensorflow.keras.models import Model  # type: ignore
 from tensorflow.keras.callbacks import EarlyStopping  # type: ignore
 
 # Load the combined embedding matrix
-combined_embedding_matrix_with_emoji_description = np.load('../embeddings/combined_emedding_matrix_with_emoji_description.npy')
+combined_embeddings_matrix_with_no_emojis = np.load('../embeddings/combined_emedding_matrix_with_no_emojis.npy')
 
 # Load dataset
 modern_tweet_dataset = pd.read_csv('../data/modern_tweet_dataset.csv')
-modern_tweet_dataset['Processed_Text_with_emoji_description'] = modern_tweet_dataset['Processed_Text_with_emoji_description'].fillna('').astype(str)
-texts = modern_tweet_dataset['Processed_Text_with_emoji_description'].tolist()
+modern_tweet_dataset['Processed_Text_with_no_emojis'] = modern_tweet_dataset['Processed_Text_with_no_emojis'].fillna('').astype(str)
+texts = modern_tweet_dataset['Processed_Text_with_no_emojis'].tolist()
 labels = modern_tweet_dataset['Sentiment'].tolist()
 
 # Split the dataset
@@ -36,11 +36,10 @@ X_test_padded = pad_sequences(X_test_sequences, padding='post', maxlen=X_train_p
 # Build the model
 text_input = Input(shape=(X_train_padded.shape[1],))  # Input shape based on padded sequences
 
-# Embedding layer with pretrained embeddings
 embedding = Embedding(
     input_dim=len(tokenizer.word_index) + 1,
     output_dim=300,
-    weights=[combined_embedding_matrix_with_emoji_description],
+    weights=[combined_embeddings_matrix_with_no_emojis],
     trainable=False
 )(text_input)
 
