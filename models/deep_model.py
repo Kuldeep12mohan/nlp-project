@@ -81,9 +81,6 @@ history = model.fit(
     verbose=1
 )
 
-# Save the model
-model.save('sentiment_model.h5')
-
 # Evaluate the model
 test_loss, test_accuracy = model.evaluate([X_test_padded, np.array(emoji_scores_test)], np.array(y_test))
 print(f"Test Accuracy: {test_accuracy:.4f}")

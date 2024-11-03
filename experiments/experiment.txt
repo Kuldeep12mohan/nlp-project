@@ -4,5 +4,3 @@ adding emoji embeddings--(done)-->got good accuracy
 adding emoji score-->issue in accuracy-->(done)
 EE+ES-->(done)-->got good accuracy
 ER+ES
-ER+EE
-ER+EE+ES

@@ -9,12 +9,12 @@ from tensorflow.keras.models import Model # type:ignore
 from tensorflow.keras.callbacks import EarlyStopping # type:ignore
 
 # Load the combined embedding matrix
-combined_embedding_matrix = np.load('../embeddings/combined_emedding_matrix_with_no_emojis.npy')
+combined_embedding_matrix = np.load('../embeddings/combined_emedding_matrix_with_emoji_description.npy')
 
 # Load dataset
 modern_tweet_dataset = pd.read_csv('../data/modern_tweet_dataset.csv')
-modern_tweet_dataset['Processed_Text_with_no_emojis'] = modern_tweet_dataset['Processed_Text_with_no_emojis'].fillna('').astype(str)
-texts = modern_tweet_dataset['Processed_Text_with_no_emojis'].tolist()
+modern_tweet_dataset['Processed_Text_with_emoji_description'] = modern_tweet_dataset['Processed_Text_with_emoji_description'].fillna('').astype(str)
+texts = modern_tweet_dataset['Processed_Text_with_emoji_description'].tolist()
 labels = modern_tweet_dataset['Sentiment'].tolist()
 emoji_scores = modern_tweet_dataset['Emoji_Score'].tolist()
 
@@ -23,7 +23,6 @@ X_train_texts, X_test_texts, y_train, y_test, emoji_scores_train, emoji_scores_t
     texts, labels, emoji_scores, test_size=0.2, random_state=42
 )
 
-# Tokenize the text data
 tokenizer = Tokenizer()
 tokenizer.fit_on_texts(X_train_texts)
 word_index = tokenizer.word_index
@@ -81,8 +80,6 @@ history = model.fit(
     verbose=1
 )
 
-# Save the model
-model.save('sentiment_model.h5')
 
 # Evaluate the model
 test_loss, test_accuracy = model.evaluate([X_test_padded, np.array(emoji_scores_test)], np.array(y_test))

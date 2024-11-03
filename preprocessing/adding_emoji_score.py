@@ -84,4 +84,4 @@ for i, score in enumerate(emoji_scores):
     print(f"Tweet {i+1} Emoji Score: {score}")
 
 # Save the dataset with emoji scores
-modern_tweet_dataset.to_csv('../data/modern_tweet_dataset_with_emoji_scores.csv', index=False)
+modern_tweet_dataset.to_csv('../data/modern_tweet_dataset.csv', index=False)
