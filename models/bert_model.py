@@ -1,3 +1,5 @@
+# this bert model from hugging face return sentiment in range 1 to 5
+
 import pandas as pd
 import torch
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
@@ -13,7 +15,7 @@ model = AutoModelForSequenceClassification.from_pretrained("nlptown/bert-base-mu
 df = pd.read_csv('../data/modern_tweet_dataset.csv')
 
 # Ensure the 'Processed_Text' column is string type and handle NaN values
-df['Processed_Text'] = df['Processed_Text'].fillna('').astype(str)
+df['Processed_Text_with_emoji_description'] = df['Processed_Text_with_emoji_description'].fillna('').astype(str)
 
 # Split the data into training and test sets (80% train, 20% test)
 train_df, test_df = train_test_split(df, test_size=0.2, random_state=42)
@@ -37,7 +39,7 @@ def get_binary_sentiment(text):
 
 # Predict sentiments on the test set with progress tracking
 tqdm.pandas(desc="Predicting Sentiments on Test Set")
-test_df['predicted'] = test_df['Processed_Text'].progress_apply(get_binary_sentiment)
+test_df['predicted'] = test_df['Processed_Text_with_emoji_description'].progress_apply(get_binary_sentiment)
 
 # Drop any rows where prediction failed
 test_df = test_df.dropna(subset=['predicted'])

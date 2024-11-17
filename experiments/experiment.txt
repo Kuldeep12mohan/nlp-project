@@ -1,6 +1,6 @@
-emoji_less-->lets try this
-emoji_replacement--(done)-got good accuracy
-adding emoji embeddings--(done)-->got good accuracy
-adding emoji score-->issue in accuracy-->(done)
-EE+ES-->(done)-->got good accuracy
+emoji_less
+emoji_replacement(ER)
+adding emoji embeddings(EE)
+adding emoji score(ES)
+EE+ES
 ER+ES
