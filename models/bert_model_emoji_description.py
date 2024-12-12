@@ -1,3 +1,5 @@
+# emoji description
+
 import torch
 from transformers import BertTokenizer, BertForSequenceClassification
 from sklearn.model_selection import train_test_split
@@ -6,19 +8,23 @@ from torch.utils.data import DataLoader, TensorDataset
 import pandas as pd
 from tqdm import tqdm
 
-# Load the dataset (replace 'your_dataset.csv' with the path to your dataset file)
-# Assuming the dataset has 'Text' (the tweet with emojis) and 'Sentiment' columns
-df = pd.read_csv('../data/modern_tweet_dataset.csv')
+print(f"Is GPU available? {torch.cuda.is_available()}")
+print(f"GPU Device: {torch.cuda.get_device_name(0)}")
 
-# Train-test split
-train_texts, val_texts, train_labels, val_labels = train_test_split(df['Text'], df['Sentiment'], test_size=0.2, random_state=42)
 
-# Load the pre-trained BERT tokenizer
+df = pd.read_csv('modern_tweet_dataset.csv')
+
+train_texts, val_texts, train_labels, val_labels = train_test_split(df['Processed_Text_with_emoji_description'], df['Sentiment'], test_size=0.2, random_state=42)
+
+
 tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
 
-# Tokenize the texts (ensure the input is a list of strings)
-train_encodings = tokenizer(train_texts.tolist(), truncation=True, padding=True, max_length=512)
-val_encodings = tokenizer(val_texts.tolist(), truncation=True, padding=True, max_length=512)
+train_texts = train_texts.astype(str).tolist()
+val_texts = val_texts.astype(str).tolist()
+
+# Proceed with tokenization
+train_encodings = tokenizer(train_texts, truncation=True, padding=True, max_length=512)
+val_encodings = tokenizer(val_texts, truncation=True, padding=True, max_length=512)
 
 # Convert to PyTorch datasets
 train_dataset = TensorDataset(torch.tensor(train_encodings['input_ids']), torch.tensor(train_labels.values))
@@ -56,7 +62,7 @@ def evaluate_model(model, val_dataloader, device):
             logits = outputs.logits
             predictions.extend(torch.argmax(logits, dim=-1).cpu().numpy())
             true_labels.extend(labels.cpu().numpy())
-    
+
     # Calculate accuracy and F1 score
     accuracy = accuracy_score(true_labels, predictions)
     f1 = f1_score(true_labels, predictions)
