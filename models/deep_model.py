@@ -71,6 +71,7 @@ model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy']
 early_stopping = EarlyStopping(monitor='val_loss', patience=3, restore_best_weights=True)
 
 # Train the model with early stopping and increased epochs
+# Train the model with early stopping and increased epochs
 history = model.fit(
     [X_train_padded, np.array(emoji_scores_train)],
     np.array(y_train),
@@ -80,6 +81,16 @@ history = model.fit(
     callbacks=[early_stopping],  # Add early stopping callback
     verbose=1
 )
+
+# Save the model
+model.save('sentiment_model_with_emoji.h5')
+
+# Save the tokenizer
+import pickle
+with open('tokenizer.pkl', 'wb') as file:
+    pickle.dump(tokenizer, file)
+
+print("Model and tokenizer saved successfully.")
 
 # Evaluate the model
 test_loss, test_accuracy = model.evaluate([X_test_padded, np.array(emoji_scores_test)], np.array(y_test))
@@ -95,3 +106,19 @@ precision, recall, f1, _ = precision_recall_fscore_support(np.array(y_test), y_p
 print(f"F1 Score: {f1:.4f}")
 print(f"Precision: {precision:.4f}")
 print(f"Recall: {recall:.4f}")
+
+test = "This is very good ❤️❤️"
+
+# Tokenize and pad the test string
+test_sequence = tokenizer.texts_to_sequences([test])
+test_padded = pad_sequences(test_sequence, maxlen=X_train_padded.shape[1], padding='post')
+
+# Provide a dummy emoji score (e.g., 0 if unavailable or calculate appropriately)
+test_emoji_score = np.array([[0]])  # Replace 0 with the actual emoji score if you have the method to calculate it
+
+# Predict sentiment
+pred = model.predict([test_padded, test_emoji_score])
+
+# Output the sentiment score
+print(test)
+print("Sentiment score is:", pred[0][0])
